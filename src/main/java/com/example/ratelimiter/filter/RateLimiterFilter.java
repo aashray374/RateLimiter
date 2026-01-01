@@ -1,23 +1,27 @@
-package com.example.ratelimiter;
+package com.example.ratelimiter.filter;
 
+import com.example.ratelimiter.limiter.RateLimiter;
+import com.example.ratelimiter.redis.RedisKeyBuilder;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import reactor.util.annotation.NonNullApi;
 
 import java.io.IOException;
 
 @Component
 public class RateLimiterFilter extends OncePerRequestFilter {
 
-    private final RedisTokenBucketService rateLimiter;
+    private final RedisKeyBuilder redisKeyBuilder;
+    private final RateLimiter rateLimiter;
 
-    public RateLimiterFilter(RedisTokenBucketService rateLimiter) {
+    public RateLimiterFilter(RedisKeyBuilder redisKeyBuilder, RateLimiter rateLimiter) {
+        this.redisKeyBuilder = redisKeyBuilder;
         this.rateLimiter = rateLimiter;
     }
+
 
     @Override
     protected void doFilterInternal(
@@ -27,9 +31,9 @@ public class RateLimiterFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String ip = request.getRemoteAddr();
-        String key = "rate:ip:" + ip;
+        String key = redisKeyBuilder.ipKey(ip);
 
-        if (!rateLimiter.allowRequest(key)) {
+        if (!rateLimiter.allow(key)) {
             response.setStatus(429);
             response.getWriter().write("Too many requests");
             return;
